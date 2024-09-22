@@ -1,42 +1,47 @@
 package main
 
 import (
-	"log"
 	"net"
-	"strconv"
-	"strings"
+	"log"
+	"time"
 )
 
-const (
-	message = "Ping"
-	StopCharacter = "\r\n\r\n"
-)
-
-func SocketClient(ip string, port int) {
-	addr := strings.Join([]string{ip, strconv.Itoa(port)}, ":")
-	conn, err := net.Dial("tcp", addr)
-
-	defer conn.Close()
-
+func Ping(proto, addr string, out chan<- string) {
+	c, err := net.Dial(proto, addr)
 	if err != nil {
-		log.Fatalln(err)
+		log.Fatal(err)
+	}
+	defer c.Close()
+
+	msg := []byte("holla!")
+	_, err = c.Write(msg)
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	conn.Write([]byte(message))
-	conn.Write([]byte(StopCharacter))
-	log.Printf("Send: %s", message)
-
-	buff := make([]byte, 1024)
-	n, _ := conn.Read(buff)
-	log.Printf("Receive: %s", buff[:n])
-
+	buf := make([]byte, 1024)
+	_, err = c.Read(buf)
+	if err != nil {
+		log.Fatal(err)
+	}
+	out <- string(buf)
 }
 
 func main() {
-	var (
-		ip = "127.0.0.1"
-		port = 3333
-	)
 
-	SocketClient(ip, port)
+	start := time.Now()
+
+	ch := make(chan string, 1)
+	for i := 0; i < 100; i++ {
+		go Ping("tcp", "0.0.0.0:8888", ch)
+	}
+
+	var m string
+	for i := 0; i < 100; i++ {
+		m = <-ch
+		log.Println(i+1, m)
+	}
+
+	log.Println(time.Since(start))
+
 }
